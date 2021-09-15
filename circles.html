@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <main></main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/addons/p5.dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/addons/p5.sound.min.js"></script>
+
+    <script>
+      const particleSize = 30;
+      const circleSize = 150;
+      const easing = 0.05;
+      const particleLife = 50;
+      const moveEventMin = 100;
+      const moveEventMax = 1000;
+      const particleProbabilityMin = 0;
+      const particleProbabilityMax = 1;
+
+      let particles = [];
+
+      let player1 = makePlayer(0, [100, 100, 255]);
+      let player2 = makePlayer(1, [255, 100, 100]);
+
+      function makePlayer(index, rgb) {
+        const startCount = getRandomIntInclusive(1, 100000);
+        return {
+          index,
+          nextBurstMoveEvent: startCount + getNextMoveEvent(),
+          particleProbability: getRandomArbitrary(particleProbabilityMin, particleProbabilityMax),
+          counter: startCount,
+          burstPos: { x: 0, y: 0 },
+          nextBurstPos: { x: 0, y: 0 },
+          rgb,
+        };
+      }
+
+      function getNextMoveEvent() {
+        return Math.ceil(Math.random() * moveEventMax + moveEventMin);
+      }
+
+      function getRandomArbitrary(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function getRandomIntInclusive(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
+      }
+
+      function setup() {
+        createCanvas(windowWidth * 0.98, windowHeight * 0.98);
+        const halfHeight = (windowHeight * 0.98) / 2;
+        const halfWidth = (windowWidth * 0.98) / 2;
+        origin = { x: halfWidth, y: halfHeight };
+
+        player1.burstPos.x = getRandomIntInclusive(
+          circleSize,
+          windowWidth - circleSize
+        );
+        player1.burstPos.y = getRandomIntInclusive(
+          circleSize,
+          windowHeight - circleSize
+        );
+        player1.nextBurstPos.x = player1.burstPos.x;
+        player1.nextBurstPos.y = player1.burstPos.y;
+
+        player2.burstPos.x = getRandomIntInclusive(
+          circleSize,
+          windowWidth - circleSize
+        );
+        player2.burstPos.y = getRandomIntInclusive(
+          circleSize,
+          windowHeight - circleSize
+        );
+        player2.nextBurstPos.x = player2.burstPos.x;
+        player2.nextBurstPos.y = player2.burstPos.y;
+      }
+
+      function moveBurst(player) {
+        player.nextBurstPos.x = getRandomIntInclusive(
+          circleSize,
+          width - circleSize
+        );
+        player.nextBurstPos.y = getRandomIntInclusive(
+          circleSize,
+          height - circleSize
+        );
+      }
+
+      function emitParticle(player) {
+        particles.push({
+          rgb: player.rgb,
+          vector: { x: Math.random() * 6 - 3, y: Math.random() * 6 - 3 },
+          lifeLeft: particleLife,
+          pos: { x: player.burstPos.x, y: player.burstPos.y },
+        });
+      }
+
+      function updateParticles() {
+        for (let i = 0; i < particles.length; i++) {
+          particles[i].pos.x += particles[i].vector.x;
+          particles[i].pos.y += particles[i].vector.y;
+          particles[i].lifeLeft = particles[i].lifeLeft - 1;
+        }
+
+        particles = particles.filter((p) => p.lifeLeft > 0);
+      }
+
+      function updatePlayer(player) {
+        player.counter++;
+
+        const dx = player.nextBurstPos.x - player.burstPos.x;
+        player.burstPos.x =
+          dx === 0 ? player.burstPos.x : player.burstPos.x + dx * easing;
+
+        const dy = player.nextBurstPos.y - player.burstPos.y;
+        player.burstPos.y =
+          dy === 0 ? player.burstPos.y : player.burstPos.y + dy * easing;
+
+        if (player.counter % 10 === 0 && Math.random() > player.particleProbability) {
+          emitParticle(player);
+        }
+
+        if (player.counter >= player.nextBurstMoveEvent) {
+          moveBurst(player);
+          player.particleProbability = getRandomArbitrary(particleProbabilityMin, particleProbabilityMax);
+          player.nextBurstMoveEvent += getNextMoveEvent();
+        }
+
+        // player.particleProbability = map(
+        //   noise(player.counter * 0.001),
+        //   0,
+        //   1,
+        //   particleProbabilityMin,
+        //   particleProbabilityMax
+        // );
+      }
+
+      function update() {
+        updatePlayer(player1);
+        updatePlayer(player2);
+        updateParticles();
+      }
+
+      function drawPlayer(player) {
+        const rgb = player.rgb;
+
+        fill('rgba(20,20,20,0)');
+        stroke(rgb[0], rgb[1], rgb[2]);
+        strokeWeight(3);
+
+        ellipse(player.burstPos.x, player.burstPos.y, circleSize, circleSize);
+
+        strokeWeight(1);
+        fill(rgb[0], rgb[1], rgb[2]);
+        textSize(20);
+        text('particle dampening: ' + player.particleProbability.toFixed(3), 10, height - player.index * 20 - 20);
+      }
+
+      function drawParticles() {
+        strokeWeight(0);
+        particles.forEach((particle) => {
+          fill(
+            `rgba(${particle.rgb[0]},${particle.rgb[1]},${particle.rgb[2]},${
+              particle.lifeLeft / particleLife
+            })`
+          );
+          ellipse(particle.pos.x, particle.pos.y, particleSize, particleSize);
+        });
+      }
+
+      function draw() {
+        background(20);
+        update();
+        drawPlayer(player1);
+        drawPlayer(player2);
+        drawParticles();
+      }
+    </script>
+  </body>
+</html>
