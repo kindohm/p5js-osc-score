@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <main></main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/addons/p5.dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/addons/p5.sound.min.js"></script>
+    <script>
+      var fft, trigger;
+
+      let myX = 0;
+      let xUp = true;
+      let myY = 0;
+      let yUp = true;
+      let oscs = [];
+      let whichCount = 0;
+      let which = 0;
+
+      function setup() {
+        createCanvas(720, 256);
+
+        sinOsc = new p5.SinOsc(); // set frequency and type
+        sinOsc.amp(0.5);
+        sinOsc.start();
+
+        triOsc = new p5.TriOsc(); // set frequency and type
+        triOsc.amp(0.5);
+        // triOsc.start();
+
+        oscs = [sinOsc, triOsc];
+
+        fft = new p5.FFT();
+
+
+      }
+
+      function update(){
+      }
+
+      function draw() {
+
+        whichCount++;
+
+        if (whichCount === 1000){
+          oscs[which].stop();
+          which = which === 0 ? 1 : 0;
+          whichCount = 0;
+          oscs[which].start();
+        }
+
+
+
+
+        background(25, 120, 111);
+
+        var waveform = fft.waveform(); // analyze the waveform
+        beginShape();
+        strokeWeight(2);
+        noFill();
+        stroke(109, 255, 245);
+        trigger = 0;
+        for (var i = 0; i < waveform.length; i++) {
+          // find the first point in the waveform buffer
+          // where the waveform crosses zero, going in a positive direction
+          if (waveform[i] > 0 && waveform[i - 1] <= 0 && trigger == 0) {
+            trigger = 1;
+            firstPos = i;
+          }
+          //once that first positive-going zero crossing is found,
+          //start drawing the waveform
+          if (trigger == 1) {
+            // subtract the offset of the first zero crossing from "i",
+            // and use only use an early section of the buffer
+            // (in this case, the first third of it, because it will
+            // end in different places based on where the zero crossing
+            // happened)
+            var x = map(i - firstPos, 0, waveform.length, 0, width * 3);
+            var y = map(waveform[i], -1, 1, height, 0);
+          }
+          vertex(x, y);
+        }
+        endShape();
+
+        // change oscillator frequency based on mouseX
+        var freq = map(myX, 0, width, 40, 1400);
+        // sinOsc.freq(freq);
+
+        var amp = map(myY, 0, 100, 0, 0.4);
+        // sinOsc.amp(amp);
+
+        oscs.forEach(osc => {
+          osc.freq(freq);
+          osc.amp(amp);
+        })
+
+        if (xUp) {
+          myX += 2;
+        } else {
+          myX -= 2;
+        }
+
+        if (myX === 300) {
+          xUp = false;
+        } else if (myX === 0) {
+          xUp = true;
+        }
+
+        if (yUp) {
+          myY++;
+        } else {
+          myY--;
+        }
+
+        if (myY === 100) {
+          yUp = false;
+        } else if (myY === 0) {
+          yUp = true;
+        }
+      }
+    </script>
+  </body>
+</html>

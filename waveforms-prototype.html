@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <div>
+      <input
+        type="range"
+        value="1"
+        min="0.05"
+        max="4"
+        step="0.01"
+        id="wavelengthSlider"
+      />
+      <input
+        type="range"
+        value="0.5"
+        min="0"
+        max="0.9"
+        step="0.01"
+        id="ampSlider"
+      />
+
+      <input type="checkbox" id="triCheckbox" value="tri" checked /> tri
+      <input type="checkbox" id="sawCheckbox" value="saw" /> saw
+      <input type="checkbox" id="squareCheckbox" value="square" /> square
+      <input type="checkbox" id="randomCheckbox" value="random" /> random
+    </div>
+    <main></main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/addons/p5.dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/addons/p5.sound.min.js"></script>
+    <script>
+      const pi = Math.PI;
+      const halfPi = Math.PI / 2;
+      const twoPi = Math.PI * 2;
+
+      let origin,
+        triChecked = true,
+        sawChecked = false,
+        squareChecked = false,
+        randomChecked = false,
+        currentWavelength = 1,
+        currentAmp = 0.5,
+        scroll = 0;
+
+      const wavelengthSlider = document.getElementById("wavelengthSlider");
+      wavelengthSlider.addEventListener("input", wavelengthInput);
+
+      function wavelengthInput(e) {
+        currentWavelength = parseFloat(e.target.value);
+      }
+
+      const ampSlider = document.getElementById("ampSlider");
+      ampSlider.addEventListener("input", ampInput);
+
+      function ampInput(e) {
+        currentAmp = parseFloat(e.target.value);
+      }
+
+      const triCheckbox = document.getElementById("triCheckbox");
+      triCheckbox.addEventListener(
+        "input",
+        (e) => (triChecked = e.target.checked)
+      );
+
+      const sawCheckbox = document.getElementById("sawCheckbox");
+      sawCheckbox.addEventListener(
+        "input",
+        (e) => (sawChecked = e.target.checked)
+      );
+
+      const squareCheckbox = document.getElementById("squareCheckbox");
+      squareCheckbox.addEventListener(
+        "input",
+        (e) => (squareChecked = e.target.checked)
+      );
+
+      const randomCheckbox = document.getElementById("randomCheckbox");
+      randomCheckbox.addEventListener(
+        "input",
+        (e) => (randomChecked = e.target.checked)
+      );
+
+      function setup() {
+        createCanvas(windowWidth * 0.9, windowHeight * 0.9);
+        const halfHeight = (windowHeight * 0.9) / 2;
+        origin = { x: 0, y: halfHeight };
+      }
+
+      function drawTriSingleCycle(
+        startX,
+        quarterWidth,
+        quarterWidth2,
+        quarterWidth4,
+        ampHeight
+      ) {
+        line(
+          startX,
+          origin.y + ampHeight,
+          startX + quarterWidth2,
+          origin.y - ampHeight
+        );
+        line(
+          startX + quarterWidth2,
+          origin.y - ampHeight,
+          startX + quarterWidth4,
+          origin.y + ampHeight
+        );
+      }
+
+      function drawTri(wavelength, cycles, ampHeight) {
+        const quarterWidth = (width / 4) * wavelength;
+        const quarterWidth2 = quarterWidth * 2;
+        const quarterWidth4 = quarterWidth * 4;
+
+        for (let i = 0; i < cycles * 2; i++) {
+          drawTriSingleCycle(
+            i * wavelength * width,
+            quarterWidth,
+            quarterWidth2,
+            quarterWidth4,
+            ampHeight
+          );
+        }
+      }
+
+      function drawSaw(wavelength, cycles, ampHeight) {
+        for (let i = 0; i < cycles * 2; i++) {
+          drawSawSingleCycle(
+            i * wavelength * width,
+            wavelength * width,
+            ampHeight
+          );
+        }
+      }
+
+      function drawSawSingleCycle(startX, cycleWidth, ampHeight) {
+        line(
+          startX,
+          origin.y + ampHeight,
+          startX + cycleWidth,
+          origin.y - ampHeight
+        );
+        line(
+          startX + cycleWidth,
+          origin.y - ampHeight,
+          startX + cycleWidth,
+          origin.y + ampHeight
+        );
+      }
+
+      function drawSquare(wavelength, cycles, ampHeight) {
+        for (let i = 0; i < cycles * 2; i++) {
+          drawSquareSingleCycle(
+            i * wavelength * width,
+            wavelength * width,
+            ampHeight
+          );
+        }
+      }
+
+      function drawSquareSingleCycle(startX, cycleWidth, ampHeight) {
+        const halfCycleWidth = cycleWidth / 2;
+        line(
+          startX,
+          origin.y + ampHeight,
+          startX + halfCycleWidth,
+          origin.y + ampHeight
+        );
+        line(
+          startX + halfCycleWidth,
+          origin.y + ampHeight,
+          startX + halfCycleWidth,
+          origin.y - ampHeight
+        );
+        line(
+          startX + halfCycleWidth,
+          origin.y - ampHeight,
+          startX + cycleWidth,
+          origin.y - ampHeight
+        );
+        line(
+          startX + cycleWidth,
+          origin.y - ampHeight,
+          startX + cycleWidth,
+          origin.y + ampHeight
+        );
+      }
+
+      const randomSlots = [...Array(20)].map((x) => Math.random() - 0.5);
+
+      function drawRandom(wavelength, cycles, ampHeight) {
+        const cycleWidth = wavelength * width;
+        const slotWidth = cycleWidth / randomSlots.length;
+        let thisY = 0, prevY = origin.y;
+
+        for (let i = 0; i < cycles * 2; i++) {
+          const startX = i * cycleWidth;
+
+          for (let slot = 0; slot < randomSlots.length; slot++) {
+            thisY = origin.y + randomSlots[slot] * ampHeight
+            line(
+              startX + slot * slotWidth,
+              prevY,
+              startX + slot * slotWidth,
+              thisY
+            );
+            line(
+              startX + slot * slotWidth,
+              thisY,
+              startX + slot * slotWidth + slotWidth,
+              thisY
+            );
+            prevY = thisY;
+          }
+        }
+      }
+
+      function draw() {
+        background(25, 120, 111);
+        scroll += 8;
+        if (scroll >= currentWavelength * width) {
+          scroll = 0;
+        }
+
+        const cycles = Math.ceil(1 / currentWavelength);
+        const ampHeight = origin.y * currentAmp;
+
+        drawingContext.setLineDash([20, 10]);
+        stroke(55, 150, 151);
+        strokeWeight(1);
+        line(origin.x, origin.y, width, origin.y);
+
+        translate(-scroll, 0);
+
+        drawingContext.setLineDash([]);
+        stroke(109, 255, 245);
+        strokeWeight(3);
+        if (triChecked) {
+          drawTri(currentWavelength, cycles, ampHeight);
+        }
+
+        if (sawChecked) {
+          drawSaw(currentWavelength, cycles, ampHeight);
+        }
+
+        if (squareChecked) {
+          drawSquare(currentWavelength, cycles, ampHeight);
+        }
+
+        if (randomChecked) {
+          drawRandom(currentWavelength, cycles, ampHeight);
+        }
+      }
+    </script>
+  </body>
+</html>
