@@ -10,31 +10,75 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.5/addons/p5.sound.min.js"></script>
 
     <script>
-      const particleSize = 30;
-      const circleSize = 150;
+      const particleSize = 30; // size of particles
+      const circleSize = 150; // size of player circles
       const easing = 0.05;
-      const particleLife = 50;
-      const moveEventMin = 100;
-      const moveEventMax = 1000;
-      const particleProbabilityMin = 0;
-      const particleProbabilityMax = 1;
+      const particleLife = 60; // how long a particle exists before it is destroyed
+      const particleMaxVelocity = 10; // max speed of a particle
+      const particleCheckFrequency = 5; // lower numbers mean more frequent particle creation checks
+      const ringLife = 100; // how long a ring echo lives after it is fired
+      const moveEventMin = 100; // how often a circle movement occurs, by drawing ticks
+      const moveEventMax = 1000; // how often a circle movement occurs, by drawing ticks
+      const particleProbabilityMin = 0; // lower number means more frequent particles
+      const particleProbabilityMax = 1; // lower number means more frequent particles
+      const ringProbabilityMin = 0.3; 
+      const ringProbabilityMax = 1;
+      const ringEchoGrowthInc = 20; // how fast the ring echo grows
+      const chargeLife = 150; // how long a charge takes
+      const chargeStrokeInc = 0.5; // how large the charge increments per drawing tick
 
-      let particles = [];
+      let players = [];
 
-      let player1 = makePlayer(0, [100, 100, 255]);
-      let player2 = makePlayer(1, [255, 100, 100]);
+      function setup() {
+        createCanvas(windowWidth * 0.98, windowHeight * 0.98);
+        const halfHeight = (windowHeight * 0.98) / 2;
+        const halfWidth = (windowWidth * 0.98) / 2;
+        origin = { x: halfWidth, y: halfHeight };
+        players.push(makePlayer(0, [100, 100, 255]));
+        players.push(makePlayer(1, [255, 100, 100]));
+      }
 
       function makePlayer(index, rgb) {
-        const startCount = getRandomIntInclusive(1, 100000);
-        return {
+        const oneSixth = width / 6;
+        const startCount = 0; //getRandomIntInclusive(1, 1000);
+        const p = {
           index,
+          particles: [],
           nextBurstMoveEvent: startCount + getNextMoveEvent(),
-          particleProbability: getRandomArbitrary(particleProbabilityMin, particleProbabilityMax),
+          nextRingMoveEvent: startCount + getNextMoveEvent(),
+          particleProbability: getRandomArbitrary(
+            particleProbabilityMin,
+            particleProbabilityMax
+          ),
+          ringProbability: getRandomArbitrary(
+            ringProbabilityMin,
+            ringProbabilityMax
+          ),
           counter: startCount,
-          burstPos: { x: 0, y: 0 },
+          burstPos: {
+            x: oneSixth + (index * width) / 2, // getRandomIntInclusive(circleSize, windowWidth - circleSize),
+            y: getRandomIntInclusive(circleSize, windowHeight - circleSize),
+          },
           nextBurstPos: { x: 0, y: 0 },
+          ringPos: {
+            x: oneSixth * 2 + (index * width) / 2, // getRandomIntInclusive(circleSize, windowWidth - circleSize),
+            y: getRandomIntInclusive(circleSize, windowHeight - circleSize),
+          },
+          ringEchoPos: { x: 0, y: 0 },
+          ringEchoSize: circleSize,
           rgb,
+          charging: false,
+          chargeLife,
+          ringing: false,
+          ringLife,
+          ringSize: circleSize,
+          chargingStroke: 1,
+          chargeOpacity: 1,
+          ringEchoOpacity: 1,
         };
+        p.nextBurstPos = { ...p.burstPos };
+        p.nextRingPos = { ...p.ringPos };
+        return p;
       }
 
       function getNextMoveEvent() {
@@ -51,134 +95,232 @@
         return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
       }
 
-      function setup() {
-        createCanvas(windowWidth * 0.98, windowHeight * 0.98);
-        const halfHeight = (windowHeight * 0.98) / 2;
-        const halfWidth = (windowWidth * 0.98) / 2;
-        origin = { x: halfWidth, y: halfHeight };
-
-        player1.burstPos.x = getRandomIntInclusive(
-          circleSize,
-          windowWidth - circleSize
-        );
-        player1.burstPos.y = getRandomIntInclusive(
-          circleSize,
-          windowHeight - circleSize
-        );
-        player1.nextBurstPos.x = player1.burstPos.x;
-        player1.nextBurstPos.y = player1.burstPos.y;
-
-        player2.burstPos.x = getRandomIntInclusive(
-          circleSize,
-          windowWidth - circleSize
-        );
-        player2.burstPos.y = getRandomIntInclusive(
-          circleSize,
-          windowHeight - circleSize
-        );
-        player2.nextBurstPos.x = player2.burstPos.x;
-        player2.nextBurstPos.y = player2.burstPos.y;
-      }
-
       function moveBurst(player) {
-        player.nextBurstPos.x = getRandomIntInclusive(
-          circleSize,
-          width - circleSize
-        );
+        // player.nextBurstPos.x = getRandomIntInclusive(
+        //   circleSize,
+        //   width - circleSize
+        // );
         player.nextBurstPos.y = getRandomIntInclusive(
           circleSize,
           height - circleSize
         );
       }
 
+      function moveRing(player) {
+        // player.nextRingPos.x = getRandomIntInclusive(
+        //   circleSize,
+        //   width - circleSize
+        // );
+        player.nextRingPos.y = getRandomIntInclusive(
+          circleSize,
+          height - circleSize
+        );
+      }
+
       function emitParticle(player) {
-        particles.push({
-          rgb: player.rgb,
-          vector: { x: Math.random() * 6 - 3, y: Math.random() * 6 - 3 },
+        player.particles.push({
+          vector: {
+            x: Math.random() * particleMaxVelocity - particleMaxVelocity / 2,
+            y: Math.random() * particleMaxVelocity - particleMaxVelocity / 2,
+          },
           lifeLeft: particleLife,
           pos: { x: player.burstPos.x, y: player.burstPos.y },
         });
       }
 
-      function updateParticles() {
+      function updateParticles(player) {
+        const particles = player.particles;
         for (let i = 0; i < particles.length; i++) {
           particles[i].pos.x += particles[i].vector.x;
           particles[i].pos.y += particles[i].vector.y;
           particles[i].lifeLeft = particles[i].lifeLeft - 1;
         }
 
-        particles = particles.filter((p) => p.lifeLeft > 0);
+        player.particles = particles.filter((p) => p.lifeLeft > 0);
+      }
+
+      function updatePlayers() {
+        players.forEach((p) => updatePlayer(p));
       }
 
       function updatePlayer(player) {
         player.counter++;
 
-        const dx = player.nextBurstPos.x - player.burstPos.x;
+        const burstDx = player.nextBurstPos.x - player.burstPos.x;
         player.burstPos.x =
-          dx === 0 ? player.burstPos.x : player.burstPos.x + dx * easing;
+          burstDx === 0
+            ? player.burstPos.x
+            : player.burstPos.x + burstDx * easing;
 
-        const dy = player.nextBurstPos.y - player.burstPos.y;
+        const burstDy = player.nextBurstPos.y - player.burstPos.y;
         player.burstPos.y =
-          dy === 0 ? player.burstPos.y : player.burstPos.y + dy * easing;
+          burstDy === 0
+            ? player.burstPos.y
+            : player.burstPos.y + burstDy * easing;
 
-        if (player.counter % 10 === 0 && Math.random() > player.particleProbability) {
+        const ringDx = player.nextRingPos.x - player.ringPos.x;
+        player.ringPos.x =
+          ringDx === 0 ? player.ringPos.x : player.ringPos.x + ringDx * easing;
+
+        const ringDy = player.nextRingPos.y - player.ringPos.y;
+        player.ringPos.y =
+          ringDy === 0 ? player.ringPos.y : player.ringPos.y + ringDy * easing;
+
+        // check emit particle
+        if (
+          player.counter % particleCheckFrequency === 0 &&
+          Math.random() > player.particleProbability
+        ) {
           emitParticle(player);
+        }
+
+        // check for new charge
+        if (
+          !player.charging &&
+          !player.ringing &&
+          player.counter % 100 === 0 &&
+          Math.random() > player.ringProbability
+        ) {
+          player.charging = true;
+          player.chargeLife = chargeLife;
+          player.chargeOpacity = 1;
+          player.ringing = false;
+          player.chargeStroke = 1;
+        }
+
+        // check charging state
+        if (player.charging) {
+          player.chargeLife--;
+          player.chargeStroke += chargeStrokeInc;
+          player.chargeOpacity = map(
+            player.chargeLife / chargeLife,
+            0,
+            1,
+            0.3,
+            1
+          );
+          if (player.chargeLife === 0) {
+            player.chargeLife = chargeLife;
+            player.chargeOpacity = 1;
+            player.charging = false;
+            player.ringing = true;
+            player.ringEchoOpacity = 1;
+            player.chargeStroke = 1;
+            player.ringEchoPos = { ...player.ringPos };
+          }
+        }
+
+        // check ringing state
+        if (player.ringing) {
+          player.ringLife--;
+          player.ringEchoSize += ringEchoGrowthInc;
+          player.ringEchoOpacity = player.ringLife / ringLife;
+          if (player.ringLife === 0) {
+            player.ringing = false;
+            player.ringLife = ringLife;
+            player.ringEchoSize = circleSize;
+          }
         }
 
         if (player.counter >= player.nextBurstMoveEvent) {
           moveBurst(player);
-          player.particleProbability = getRandomArbitrary(particleProbabilityMin, particleProbabilityMax);
+          player.particleProbability = getRandomArbitrary(
+            particleProbabilityMin,
+            particleProbabilityMax
+          );
           player.nextBurstMoveEvent += getNextMoveEvent();
         }
 
-        // player.particleProbability = map(
-        //   noise(player.counter * 0.001),
-        //   0,
-        //   1,
-        //   particleProbabilityMin,
-        //   particleProbabilityMax
-        // );
+        if (player.counter >= player.nextRingMoveEvent) {
+          moveRing(player);
+          player.ringProbability = getRandomArbitrary(
+            ringProbabilityMin,
+            ringProbabilityMax
+          );
+          player.nextRingMoveEvent += getNextMoveEvent();
+        }
+
+        updateParticles(player);
       }
 
       function update() {
-        updatePlayer(player1);
-        updatePlayer(player2);
-        updateParticles();
+        updatePlayers();
       }
 
       function drawPlayer(player) {
         const rgb = player.rgb;
 
-        fill('rgba(20,20,20,0)');
-        stroke(rgb[0], rgb[1], rgb[2]);
-        strokeWeight(3);
+        fill("rgba(20,20,20,0)");
 
+        // burst circle
+        strokeWeight(3);
+        stroke(rgb[0], rgb[1], rgb[2]);
         ellipse(player.burstPos.x, player.burstPos.y, circleSize, circleSize);
+
+        // ring circle
+        stroke(
+          `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${player.chargeOpacity})`
+        );
+        strokeWeight(2 + player.chargeStroke);
+        ellipse(player.ringPos.x, player.ringPos.y, circleSize, circleSize);
+
+        // ring echo circle
+        if (player.ringing) {
+          stroke(
+            `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${player.ringEchoOpacity})`
+          );
+          strokeWeight(5);
+          ellipse(
+            player.ringEchoPos.x,
+            player.ringEchoPos.y,
+            player.ringEchoSize,
+            player.ringEchoSize
+          );
+        }
+
+        // debug info
+        drawPlayerDebug(player);
+      }
+
+      function drawPlayerDebug(player) {
+        return;
 
         strokeWeight(1);
         fill(rgb[0], rgb[1], rgb[2]);
         textSize(20);
-        text('particle dampening: ' + player.particleProbability.toFixed(3), 10, height - player.index * 20 - 20);
+        text(
+          "next ring move: " + player.nextRingMoveEvent + ", " + player.counter,
+          10,
+          height - player.index * 20 - 20
+        );
       }
 
-      function drawParticles() {
+      function drawParticles(player) {
         strokeWeight(0);
-        particles.forEach((particle) => {
+        for (let i = 0; i < player.particles.length; i++) {
+          const particle = player.particles[i];
           fill(
-            `rgba(${particle.rgb[0]},${particle.rgb[1]},${particle.rgb[2]},${
+            `rgba(${player.rgb[0]},${player.rgb[1]},${player.rgb[2]},${
               particle.lifeLeft / particleLife
             })`
           );
           ellipse(particle.pos.x, particle.pos.y, particleSize, particleSize);
-        });
+        }
       }
 
       function draw() {
-        background(20);
         update();
-        drawPlayer(player1);
-        drawPlayer(player2);
-        drawParticles();
+        background(20);
+
+        // center line
+        strokeWeight(2);
+        stroke(50);
+        line(width / 2, 0, width / 2, height);
+
+        players.forEach((p) => {
+          drawPlayer(p);
+          drawParticles(p);
+        });
       }
     </script>
   </body>
