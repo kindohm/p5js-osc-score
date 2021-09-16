@@ -17,8 +17,8 @@
       const WAVELENGTH_MAX = 0.9;
       const AMP_MAX = 1;
       const AMP_MIN = -1;
-      const INC_MIN = 0.0007;
-      const INC_MAX = 0.004;
+      const INC_MIN = 0.0002;
+      const INC_MAX = 0.002;
 
       const waveforms = {
         TRI: "tri",
@@ -266,7 +266,10 @@
           INC_MAX
         );
 
-        const waveformNoise = noise(player.perlinX + player.waveformShift);
+
+
+        const waveformNoise = noise((player.perlinX + player.waveformShift)*0.5);
+
         player.waveform =
           waveformNoise > 0.75
             ? waveforms.TRI
